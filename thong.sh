@@ -80,14 +80,14 @@ fi
 
 need_cmd() {
 command -v "$1" >/dev/null 2>&1 || {
-printf "%bThieu lenh:%b %s\n" "$BRIGHT_RED$BOLD" "$RESET" "$1"
+printf "%bThiếu lệnh:%b %s\n" "$BRIGHT_RED$BOLD" "$RESET" "$1"
 exit 1
 }
 }
 
 pause_enter() {
 echo ""
-printf "%bNhan Enter de tiep tuc...%b" "$BRIGHT_YELLOW$BOLD" "$RESET"
+printf "%bNhấn Enter để tiếp tục...%b" "$BRIGHT_YELLOW$BOLD" "$RESET"
 read dummy
 }
 
@@ -146,7 +146,7 @@ printf "%b%s%b\n" "$DIM$BRIGHT_WHITE" "$1" "$RESET"
 }
 
 intro_animation() {
-local title="ADB TOOL MENU @Thoòng 🤗"
+local title="ADB TOOL MENU ©Thoòng 🤗"
 local i
 
 clear
@@ -167,7 +167,7 @@ intro_animation
 printf "${ESC}[H${ESC}[2J"
 ui_line
 printf "   "
-gradient_text "ADB TOOL MENU @Thoòng 🤗"
+gradient_text "ADB TOOL MENU ©Thoòng 🤗"
 printf "\n"
 ui_line
 }
@@ -229,14 +229,14 @@ local file
 
 last=$(get_last_video)
 
-ui_info "Nhap duong dan video."
+ui_info "Nhập đường dẫn video."
 if [ -n "$last" ]; then
-ui_dim "Video lan truoc: $last"
+ui_dim "Video lần trước: $last"
 fi
-ui_dim "Vi du:"
+ui_dim "Ví dụ:"
 ui_dim "/storage/emulated/0/Download/vario.mp4"
 ui_dim "/sdcard/Download/vario.mp4"
-printf "%bDuong dan video:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
+printf "%bĐường dẫn video:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
 read file
 
 if [ -z "$file" ] && [ -n "$last" ]; then
@@ -244,7 +244,7 @@ file="$last"
 fi
 
 if [ ! -f "$file" ]; then
-ui_err "Khong tim thay file: $file"
+ui_err "Không tìm thấy file: $file"
 return 1
 fi
 
@@ -275,7 +275,7 @@ adb connect "$ip:5555" >/dev/null 2>&1
 done
 ;;
 *)
-ui_warn "Bo qua mau khong hop le: $pattern"
+ui_warn "Bỏ qua mau khong hop le: $pattern"
 ;;
 esac
 done
