@@ -7,6 +7,7 @@ DEVICE_FILE="$HOME/adb_devices_names.txt"
 LAST_VIDEO_FILE="$HOME/.adbtool_last_video"
 COMMON_THRESHOLD_PERCENT=60
 CACHE_DIR="$HOME/.adbtool_cache"
+TMP_URL_LIST="$CACHE_DIR/.tmp_url_files.txt"
 
 ESC=$'\033'
 RESET="${ESC}[0m"
@@ -40,6 +41,21 @@ COLORS=(
 "$BRIGHT_BLUE"
 "$BRIGHT_MAGENTA"
 )
+
+cleanup_temp_files() {
+if [ -f "$TMP_URL_LIST" ]; then
+while IFS= read -r f; do
+[ -n "$f" ] && [ -f "$f" ] && rm -f "$f"
+done < "$TMP_URL_LIST"
+: > "$TMP_URL_LIST"
+fi
+}
+
+register_temp_file() {
+local f="$1"
+[ -n "$f" ] || return 0
+grep -Fxq "$f" "$TMP_URL_LIST" 2>/dev/null || echo "$f" >> "$TMP_URL_LIST"
+}
 
 init_device_file() {
 if [ ! -f "$DEVICE_FILE" ]; then
@@ -91,7 +107,7 @@ exit 1
 pause_enter() {
 echo ""
 printf "%bNhấn Enter để tiếp tục...%b" "$BRIGHT_YELLOW$BOLD" "$RESET"
-read dummy
+read -r dummy
 }
 
 rand_color() {
@@ -226,6 +242,56 @@ cat "$LAST_VIDEO_FILE"
 fi
 }
 
+sanitize_filename() {
+local name="$1"
+name="${name##*/}"
+name="${name%%\?*}"
+name="${name%%\#*}"
+name="${name//\\/}"
+name="${name//\//_}"
+echo "$name"
+}
+
+get_file_ext() {
+local f="$1"
+local base="${f##*/}"
+if [[ "$base" == *.* ]]; then
+echo ".${base##*.}"
+else
+echo ""
+fi
+}
+
+show_download_progress() {
+local url="$1"
+local out="$2"
+
+echo ""
+ui_info "⬇ Đang tải video vào cache tạm..."
+if command -v curl >/dev/null 2>&1; then
+curl -L --progress-bar "$url" -o "$out"
+else
+/system/bin/curl -L --progress-bar "$url" -o "$out"
+fi
+local rc=$?
+echo ""
+return $rc
+}
+
+adb_push_with_progress() {
+local serial="$1"
+local src="$2"
+local dst="$3"
+adb -s "$serial" push "$src" "$dst"
+}
+
+adb_pull_with_progress() {
+local serial="$1"
+local src="$2"
+local dst="$3"
+adb -s "$serial" pull "$src" "$dst"
+}
+
 pick_video_path() {
 local last
 local file
@@ -240,7 +306,7 @@ ui_dim "Ví dụ:"
 ui_dim "/storage/emulated/0/Download/vario.mp4"
 ui_dim "/sdcard/Download/vario.mp4"
 printf "%bĐường dẫn video:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
-read file
+read -r file
 
 if [ -z "$file" ] && [ -n "$last" ]; then
 file="$last"
@@ -296,7 +362,7 @@ ui_dim "10.48.154.xxx"
 ui_dim "10.48.154.xxx 10.48.155.xxx"
 ui_dim "10.48.154.xxx,10.48.155.xxx"
 printf "%bDải IP cần quét:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
-read input
+read -r input
 
 input=$(echo "$input" | tr ',' ' ')
 if [ -z "$input" ]; then
@@ -310,7 +376,7 @@ scan_one_round "$input"
 
 echo ""
 printf "%b🔁 Quét lại lần 2 để vượt xác minh ADB? (y/n):%b " "$BRIGHT_MAGENTA$BOLD" "$RESET"
-read rescan
+read -r rescan
 
 case "$rescan" in
 y|Y)
@@ -325,7 +391,7 @@ ui_ok "✅ Quét xong. Thiết bị đang connect:"
 list_connected_devices_named
 echo ""
 printf "%bNhấn Enter để hoàn tất việc quét...%b" "$BRIGHT_YELLOW$BOLD" "$RESET"
-read dummy
+read -r dummy
 }
 
 connect_manual() {
@@ -336,7 +402,7 @@ ui_info "Nhập 1 hoặc nhiều IP:port"
 ui_dim "Ví dụ:"
 ui_dim "10.48.154.101:5555 10.48.155.203:5555"
 printf "%bIP cần connect:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
-read ips
+read -r ips
 
 if [ -z "$ips" ]; then
 ui_err "❌ Chưa nhập IP"
@@ -395,7 +461,7 @@ ui_dim "Nhập:"
 printf "%ball%b  -> tất cả\n" "$BRIGHT_CYAN$BOLD" "$RESET"
 printf "%b1 2 5%b -> chọn các máy theo số\n" "$BRIGHT_CYAN$BOLD" "$RESET"
 printf "%bChọn thiết bị:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
-read choice
+read -r choice
 
 SELECTED_DEVICES=()
 
@@ -425,22 +491,121 @@ fi
 return 0
 }
 
-push_to_selected() {
+push_video_file_to_selected_devices() {
+local src="$1"
+local name="$2"
 local dev
-local name
-pick_video_path || return
-choose_devices || return
+local devname
+local ok=0
+local fail=0
+
+choose_devices || return 1
 
 echo ""
-ui_info "📤 Đang push: $VIDEO_NAME"
+ui_info "📤 Đang push: $name"
 for dev in "${SELECTED_DEVICES[@]}"; do
-name=$(get_name_by_ip "$dev")
+devname=$(get_name_by_ip "$dev")
 printf "%b→%b %b%s%b %b(%s)%b\n" \
 "$BRIGHT_WHITE$BOLD" "$RESET" \
-"$BRIGHT_GREEN$BOLD" "$name" "$RESET" \
+"$BRIGHT_GREEN$BOLD" "$devname" "$RESET" \
 "$DIM$BRIGHT_WHITE" "$dev" "$RESET"
-adb -s "$dev" push "$VIDEO_PATH" /sdcard/Download/ >/dev/null 2>&1 && ui_ok "   ✅ OK" || ui_err "   ❌ FAIL"
+
+adb_push_with_progress "$dev" "$src" /sdcard/Download/
+if [ $? -eq 0 ]; then
+ui_ok "   ✅ OK"
+ok=$((ok+1))
+else
+ui_err "   ❌ FAIL"
+fail=$((fail+1))
+fi
+echo ""
 done
+
+ui_info "Kết quả push: OK=$ok | FAIL=$fail"
+}
+
+push_to_selected() {
+pick_video_path || return
+push_video_file_to_selected_devices "$VIDEO_PATH" "$VIDEO_NAME"
+}
+
+download_video_url_to_cache_and_push() {
+local url
+local tmp_name
+local ext
+local tmp_file
+local new_name
+local final_file
+local final_name
+local mode
+
+echo ""
+ui_info "Nhập URL video để tải tạm vào cache app."
+printf "%bURL video:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
+read -r url
+
+if [ -z "$url" ]; then
+ui_err "❌ URL trống"
+return
+fi
+
+tmp_name="$(sanitize_filename "$url")"
+[ -z "$tmp_name" ] && tmp_name="video_url.mp4"
+
+ext="$(get_file_ext "$tmp_name")"
+[ -z "$ext" ] && ext=".mp4"
+
+tmp_file="$CACHE_DIR/$tmp_name"
+
+show_download_progress "$url" "$tmp_file" || {
+ui_err "❌ Tải video thất bại"
+[ -f "$tmp_file" ] && rm -f "$tmp_file"
+return
+}
+
+if [ ! -f "$tmp_file" ]; then
+ui_err "❌ Không thấy file sau khi tải"
+return
+fi
+
+ui_ok "✅ Đã tải xong vào cache tạm:"
+ui_dim "$tmp_file"
+echo ""
+printf "%bĐổi tên file (không cần đuôi, Enter để giữ nguyên):%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
+read -r new_name
+
+if [ -n "$new_name" ]; then
+case "$new_name" in
+*.*) final_name="$new_name" ;;
+*) final_name="$new_name$ext" ;;
+esac
+final_file="$CACHE_DIR/$final_name"
+mv -f "$tmp_file" "$final_file"
+else
+final_file="$tmp_file"
+final_name="$(basename "$tmp_file")"
+fi
+
+register_temp_file "$final_file"
+save_last_video "$final_file"
+
+echo ""
+printf "%b1)%b %b📤 Push lên tất cả / chọn máy%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
+printf "%b2)%b %b📦 Chỉ tải tạm vào cache, chưa push%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%bChọn:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
+read -r mode
+
+case "$mode" in
+1)
+push_video_file_to_selected_devices "$final_file" "$final_name"
+;;
+2)
+ui_warn "Đã giữ file tạm trong cache. Khi thoát script/app sẽ tự xóa."
+;;
+*)
+ui_warn "Bỏ qua push."
+;;
+esac
 }
 
 play_on_selected() {
@@ -452,7 +617,7 @@ video_name=$(basename "$(get_last_video)")
 if [ -z "$video_name" ]; then
 ui_warn "⚠ Chưa có video gần nhất."
 printf "%bNhập tên file video trong /sdcard/Download/ trên máy đích:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
-read video_name
+read -r video_name
 fi
 
 if [ -z "$video_name" ]; then
@@ -540,7 +705,7 @@ fi
 
 echo ""
 printf "%bChọn số để mở video đó trên các máy đã chọn (Enter để bỏ qua):%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
-read idx
+read -r idx
 
 if [ -z "$idx" ]; then
 rm -rf "$tmpdir"
@@ -651,7 +816,7 @@ i=$((i+1))
 done
 
 printf "%bChọn số:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
-read idx
+read -r idx
 
 case "$idx" in
 ''|*[!0-9]*)
@@ -690,7 +855,7 @@ printf "%bMáy còn thiếu:%b %b%s%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_
 if [ "${#MISSING_DEVICES[@]}" -gt 0 ]; then
 echo ""
 printf "%bTự động đồng bộ sang máy còn thiếu rồi phát? (y/n):%b " "$BRIGHT_MAGENTA$BOLD" "$RESET"
-read syncans
+read -r syncans
 
 case "$syncans" in
 y|Y)
@@ -704,7 +869,7 @@ local_file="$CACHE_DIR/$video_name"
 
 if [ ! -f "$local_file" ]; then
 ui_info "⬇ Đang pull từ $(get_name_by_ip "$source_dev") ($source_dev)"
-adb -s "$source_dev" pull "/sdcard/Download/$video_name" "$local_file" >/dev/null 2>&1 || {
+adb_pull_with_progress "$source_dev" "/sdcard/Download/$video_name" "$local_file" || {
 ui_err "❌ Pull thất bại"
 rm -rf "$tmpdir"
 return
@@ -720,7 +885,13 @@ printf "%b→%b %b%s%b %b(%s)%b\n" \
 "$BRIGHT_WHITE$BOLD" "$RESET" \
 "$BRIGHT_GREEN$BOLD" "$(get_name_by_ip "$dev")" "$RESET" \
 "$DIM$BRIGHT_WHITE" "$dev" "$RESET"
-adb -s "$dev" push "$local_file" /sdcard/Download/ >/dev/null 2>&1 && ui_ok "   ✅ OK" || ui_err "   ❌ FAIL"
+adb_push_with_progress "$dev" "$local_file" /sdcard/Download/
+if [ $? -eq 0 ]; then
+ui_ok "   ✅ OK"
+else
+ui_err "   ❌ FAIL"
+fi
+echo ""
 done
 ;;
 esac
@@ -760,10 +931,11 @@ printf "%b5)%b %b▶ Mở / phát video theo tên video đã nhớ%b\n" "$BRIGHT
 printf "%b6)%b %b🎬 Xem video đạt ngưỡng và chọn mở luôn%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
 printf "%b7)%b %b🔄 Chọn video đạt ngưỡng rồi tự đồng bộ + phát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
 printf "%b8)%b %b🗂 Xem danh sách tên máy/IP%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
-printf "%b9)%b %b✖ Thoát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_RED$BOLD" "$RESET"
+printf "%b9)%b %b🌐 Tải video từ URL vào cache tạm rồi push%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%b0)%b %b✖ Thoát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_RED$BOLD" "$RESET"
 ui_line
 printf "%bChọn:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
-read choice
+read -r choice
 
 case "$choice" in
 1) scan_ranges ;;
@@ -774,13 +946,17 @@ case "$choice" in
 6) show_threshold_videos_and_play; pause_enter ;;
 7) pick_threshold_video_sync_and_play; pause_enter ;;
 8) show_device_names_file; pause_enter ;;
-9) exit 0 ;;
+9) download_video_url_to_cache_and_push; pause_enter ;;
+0) exit 0 ;;
 *) ui_err "❌ Lựa chọn không hợp lệ"; pause_enter ;;
 esac
 }
 
 main() {
 mkdir -p "$CACHE_DIR"
+touch "$TMP_URL_LIST"
+trap cleanup_temp_files EXIT INT TERM
+
 init_device_file
 need_cmd bash
 need_cmd adb
@@ -791,6 +967,8 @@ need_cmd awk
 need_cmd sort
 need_cmd uniq
 need_cmd sed
+need_cmd curl
+
 while true; do
 menu
 done
