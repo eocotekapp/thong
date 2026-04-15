@@ -148,7 +148,7 @@ printf "%b%s%b\n" "$DIM$BRIGHT_WHITE" "$1" "$RESET"
 }
 
 intro_animation() {
-local title="ADB TOOL MENU @Thoong"
+local title="ADB TOOL MENU ©Thoòng 🤗"
 local i
 
 clear
@@ -169,7 +169,7 @@ intro_animation
 printf "${ESC}[H${ESC}[2J"
 ui_line
 printf "   "
-gradient_text "ADB TOOL MENU @Thoong"
+gradient_text "ADB TOOL MENU ©Thoòng 🤗"
 printf "\n"
 ui_line
 }
