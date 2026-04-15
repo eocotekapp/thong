@@ -43,6 +43,7 @@ if [ ! -f "$DEVICE_FILE" ]; then
 cat > "$DEVICE_FILE" <<'EODEV'
 k 201|10.48.154.116:5555
 k 202|10.48.154.209:5555
+k 202|100.101.18.125:5555
 k 203|10.48.155.203:5555
 k 204|10.48.155.238:5555
 k 205|10.48.155.129:5555
@@ -145,7 +146,7 @@ printf "%b%s%b\n" "$DIM$BRIGHT_WHITE" "$1" "$RESET"
 }
 
 intro_animation() {
-local title="ADB TOOL MENU @Thoong"
+local title="ADB TOOL MENU @Thoòng 🤗"
 local i
 
 clear
@@ -156,7 +157,7 @@ printf "   "
 rainbow_text_shift "$title" "$i"
 printf "\n"
 ui_line
-printf "%b                Loading giao dien...%b\n" "$BRIGHT_MAGENTA$BLINK" "$RESET"
+printf "%b                Loading giao diện...%b\n" "$BRIGHT_MAGENTA$BLINK" "$RESET"
 sleep 0.08
 done
 }
@@ -166,7 +167,7 @@ intro_animation
 printf "${ESC}[H${ESC}[2J"
 ui_line
 printf "   "
-gradient_text "ADB TOOL MENU @Thoong"
+gradient_text "ADB TOOL MENU @Thoòng 🤗"
 printf "\n"
 ui_line
 }
@@ -194,7 +195,7 @@ local name
 
 devices=$(list_connected_devices_raw)
 if [ -z "$devices" ]; then
-ui_warn "Khong co thiet bi nao dang connect."
+ui_warn "không có thiết bị nào đang connect."
 return
 fi
 
