@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
 DEVICE_FILE="$HOME/adb_devices_names.txt"
 LAST_VIDEO_FILE="$HOME/.adbtool_last_video"
 COMMON_THRESHOLD_PERCENT=60
@@ -43,7 +46,6 @@ if [ ! -f "$DEVICE_FILE" ]; then
 cat > "$DEVICE_FILE" <<'EODEV'
 k 201|10.48.154.116:5555
 k 202|10.48.154.209:5555
-k 202|100.101.18.125:5555
 k 203|10.48.155.203:5555
 k 204|10.48.155.238:5555
 k 205|10.48.155.129:5555
@@ -146,7 +148,7 @@ printf "%b%s%b\n" "$DIM$BRIGHT_WHITE" "$1" "$RESET"
 }
 
 intro_animation() {
-local title="ADB TOOL MENU ©Thoòng 🤗"
+local title="ADB TOOL MENU @Thoong"
 local i
 
 clear
@@ -157,7 +159,7 @@ printf "   "
 rainbow_text_shift "$title" "$i"
 printf "\n"
 ui_line
-printf "%b                Loading giao diện...%b\n" "$BRIGHT_MAGENTA$BLINK" "$RESET"
+printf "%b                Đang tải giao diện...%b\n" "$BRIGHT_MAGENTA$BLINK" "$RESET"
 sleep 0.08
 done
 }
@@ -167,7 +169,7 @@ intro_animation
 printf "${ESC}[H${ESC}[2J"
 ui_line
 printf "   "
-gradient_text "ADB TOOL MENU ©Thoòng 🤗"
+gradient_text "ADB TOOL MENU @Thoong"
 printf "\n"
 ui_line
 }
@@ -195,7 +197,7 @@ local name
 
 devices=$(list_connected_devices_raw)
 if [ -z "$devices" ]; then
-ui_warn "không có thiết bị nào đang connect."
+ui_warn "Không có thiết bị nào đang connect."
 return
 fi
 
@@ -275,7 +277,7 @@ adb connect "$ip:5555" >/dev/null 2>&1
 done
 ;;
 *)
-ui_warn "Bỏ qua mau khong hop le: $pattern"
+ui_warn "⚠ Bỏ qua mẫu không hợp lệ: $pattern"
 ;;
 esac
 done
@@ -287,41 +289,41 @@ scan_ranges() {
 local input
 local rescan
 
-ui_info "Nhap 1 hoac nhieu dai IP."
-ui_dim "Vi du:"
+ui_info "Nhập 1 hoặc nhiều dải IP."
+ui_dim "Ví dụ:"
 ui_dim "10.48.154.xxx"
 ui_dim "10.48.154.xxx 10.48.155.xxx"
 ui_dim "10.48.154.xxx,10.48.155.xxx"
-printf "%bDai IP can quet:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
+printf "%bDải IP cần quét:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
 read input
 
 input=$(echo "$input" | tr ',' ' ')
 if [ -z "$input" ]; then
-ui_err "Chua nhap dai IP"
+ui_err "❌ Chưa nhập dải IP"
 return
 fi
 
 echo ""
-ui_info "Dang quet lan 1..."
+ui_info "📡 Đang quét lần 1..."
 scan_one_round "$input"
 
 echo ""
-printf "%bQuet lai lan 2 de vuot xac minh ADB? (y/n):%b " "$BRIGHT_MAGENTA$BOLD" "$RESET"
+printf "%b🔁 Quét lại lần 2 để vượt xác minh ADB? (y/n):%b " "$BRIGHT_MAGENTA$BOLD" "$RESET"
 read rescan
 
 case "$rescan" in
 y|Y)
 echo ""
-ui_info "Dang quet lan 2..."
+ui_info "📡 Đang quét lần 2..."
 scan_one_round "$input"
 ;;
 esac
 
 echo ""
-ui_ok "Quet xong. Thiet bi dang connect:"
+ui_ok "✅ Quét xong. Thiết bị đang connect:"
 list_connected_devices_named
 echo ""
-printf "%bNhan Enter de hoan tat viec quet...%b" "$BRIGHT_YELLOW$BOLD" "$RESET"
+printf "%bNhấn Enter để hoàn tất việc quét...%b" "$BRIGHT_YELLOW$BOLD" "$RESET"
 read dummy
 }
 
@@ -329,14 +331,14 @@ connect_manual() {
 local ips
 local dev
 
-ui_info "Nhap 1 hoac nhieu IP:port"
-ui_dim "Vi du:"
+ui_info "Nhập 1 hoặc nhiều IP:port"
+ui_dim "Ví dụ:"
 ui_dim "10.48.154.101:5555 10.48.155.203:5555"
-printf "%bIP can connect:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
+printf "%bIP cần connect:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
 read ips
 
 if [ -z "$ips" ]; then
-ui_err "Chua nhap IP"
+ui_err "❌ Chưa nhập IP"
 return
 fi
 
@@ -346,7 +348,7 @@ adb connect "$dev"
 done
 
 echo ""
-ui_ok "Xong. Thiet bi dang connect:"
+ui_ok "✅ Xong. Thiết bị đang connect:"
 list_connected_devices_named
 }
 
@@ -362,7 +364,7 @@ local name
 devices=$(list_connected_devices_raw)
 
 if [ -z "$devices" ]; then
-ui_err "Khong co thiet bi nao dang connect."
+ui_err "❌ Không có thiết bị nào đang connect."
 return 1
 fi
 
@@ -375,7 +377,7 @@ EODEVS
 
 echo ""
 ui_line
-ui_info "Danh sach thiet bi dang connect:"
+ui_info "Danh sách thiết bị đang connect:"
 i=1
 for dev in "${DEV_ARR[@]}"; do
 [ -z "$dev" ] && continue
@@ -388,10 +390,10 @@ i=$((i+1))
 done
 
 echo ""
-ui_dim "Nhap:"
-printf "%ball%b  -> tat ca\n" "$BRIGHT_CYAN$BOLD" "$RESET"
-printf "%b1 2 5%b -> chon cac may theo so\n" "$BRIGHT_CYAN$BOLD" "$RESET"
-printf "%bChon thiet bi:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
+ui_dim "Nhập:"
+printf "%ball%b  -> tất cả\n" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%b1 2 5%b -> chọn các máy theo số\n" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%bChọn thiết bị:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
 read choice
 
 SELECTED_DEVICES=()
@@ -415,7 +417,7 @@ done
 fi
 
 if [ "${#SELECTED_DEVICES[@]}" -eq 0 ]; then
-ui_err "Chua chon thiet bi hop le"
+ui_err "❌ Chưa chọn thiết bị hợp lệ"
 return 1
 fi
 
@@ -429,7 +431,7 @@ pick_video_path || return
 choose_devices || return
 
 echo ""
-ui_info "Dang push: $VIDEO_NAME"
+ui_info "📤 Đang push: $VIDEO_NAME"
 for dev in "${SELECTED_DEVICES[@]}"; do
 name=$(get_name_by_ip "$dev")
 printf "%b→%b %b%s%b %b(%s)%b\n" \
@@ -447,20 +449,20 @@ local name
 
 video_name=$(basename "$(get_last_video)")
 if [ -z "$video_name" ]; then
-ui_warn "Chua co video gan nhat."
-printf "%bNhap ten file video trong /sdcard/Download/ tren may dich:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
+ui_warn "⚠ Chưa có video gần nhất."
+printf "%bNhập tên file video trong /sdcard/Download/ trên máy đích:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
 read video_name
 fi
 
 if [ -z "$video_name" ]; then
-ui_err "Chua co ten video"
+ui_err "❌ Chưa có tên video"
 return
 fi
 
 choose_devices || return
 
 echo ""
-ui_info "Dang mo video: $video_name"
+ui_info "▶ Đang mở video: $video_name"
 for dev in "${SELECTED_DEVICES[@]}"; do
 name=$(get_name_by_ip "$dev")
 printf "%b→%b %b%s%b %b(%s)%b\n" \
@@ -508,8 +510,8 @@ cat "$tmpdir"/*.txt 2>/dev/null | sort | uniq -c | sort -nr > "$tmpdir/counts.tx
 
 echo ""
 ui_line
-printf "%bVideo co tren it nhat %s%% may da chon%b\n" "$BRIGHT_CYAN$BOLD" "$COMMON_THRESHOLD_PERCENT" "$RESET"
-printf "%bCan toi thieu:%b %b%s / %s may%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$need_count" "$dev_count" "$RESET"
+printf "%bVideo có trên ít nhất %s%% máy đã chọn%b\n" "$BRIGHT_CYAN$BOLD" "$COMMON_THRESHOLD_PERCENT" "$RESET"
+printf "%bCần tối thiểu:%b %b%s / %s máy%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$need_count" "$dev_count" "$RESET"
 ui_line
 
 VIDEO_ARR=()
@@ -520,7 +522,7 @@ while read -r count name; do
 [ -z "$name" ] && continue
 if [ "$count" -ge "$need_count" ]; then
 VIDEO_ARR+=("$name")
-printf "%b%s)%b %b%s%b %b[%s/%s may]%b\n" \
+printf "%b%s)%b %b%s%b %b[%s/%s máy]%b\n" \
 "$BRIGHT_WHITE$BOLD" "$display_idx" "$RESET" \
 "$BRIGHT_GREEN$BOLD" "$name" "$RESET" \
 "$DIM$BRIGHT_WHITE" "$count" "$dev_count" "$RESET"
@@ -530,13 +532,13 @@ fi
 done < "$tmpdir/counts.txt"
 
 if [ "$found" -eq 0 ]; then
-ui_err "Khong co video nao dat nguong."
+ui_err "❌ Không có video nào đạt ngưỡng."
 rm -rf "$tmpdir"
 return
 fi
 
 echo ""
-printf "%bChon so de mo video do tren cac may da chon (Enter de bo qua):%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
+printf "%bChọn số để mở video đó trên các máy đã chọn (Enter để bỏ qua):%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
 read idx
 
 if [ -z "$idx" ]; then
@@ -546,14 +548,14 @@ fi
 
 case "$idx" in
 ''|*[!0-9]*)
-ui_err "Lua chon khong hop le"
+ui_err "❌ Lựa chọn không hợp lệ"
 rm -rf "$tmpdir"
 return
 ;;
 esac
 
 if [ "$idx" -lt 1 ] || [ "$idx" -gt "${#VIDEO_ARR[@]}" ]; then
-ui_err "Lua chon khong hop le"
+ui_err "❌ Lựa chọn không hợp lệ"
 rm -rf "$tmpdir"
 return
 fi
@@ -561,7 +563,7 @@ fi
 video_name="${VIDEO_ARR[$((idx-1))]}"
 
 echo ""
-ui_info "Dang mo video: $video_name"
+ui_info "▶ Đang mở video: $video_name"
 for dev in "${SELECTED_DEVICES[@]}"; do
 printf "%b→%b %b%s%b %b(%s)%b\n" \
 "$BRIGHT_WHITE$BOLD" "$RESET" \
@@ -617,7 +619,7 @@ fi
 done < "$tmpdir/counts.txt"
 
 if [ ! -s "$candidates_file" ]; then
-ui_err "Khong co video nao dat nguong $COMMON_THRESHOLD_PERCENT%."
+ui_err "❌ Không có video nào đạt ngưỡng $COMMON_THRESHOLD_PERCENT%."
 rm -rf "$tmpdir"
 return
 fi
@@ -629,7 +631,7 @@ done < "$candidates_file"
 
 echo ""
 ui_line
-ui_info "Chon video de phat:"
+ui_info "Chọn video để phát:"
 i=1
 for v in "${VIDEO_ARR[@]}"; do
 [ -z "$v" ] && continue
@@ -640,26 +642,26 @@ if grep -Fxq "$v" "$tmpdir/$safe.txt"; then
 count=$((count+1))
 fi
 done
-printf "%b%s)%b %b%s%b %b[%s/%s may]%b\n" \
+printf "%b%s)%b %b%s%b %b[%s/%s máy]%b\n" \
 "$BRIGHT_WHITE$BOLD" "$i" "$RESET" \
 "$BRIGHT_GREEN$BOLD" "$v" "$RESET" \
 "$DIM$BRIGHT_WHITE" "$count" "$dev_count" "$RESET"
 i=$((i+1))
 done
 
-printf "%bChon so:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
+printf "%bChọn số:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
 read idx
 
 case "$idx" in
 ''|*[!0-9]*)
-ui_err "Lua chon khong hop le"
+ui_err "❌ Lựa chọn không hợp lệ"
 rm -rf "$tmpdir"
 return
 ;;
 esac
 
 if [ "$idx" -lt 1 ] || [ "$idx" -gt "${#VIDEO_ARR[@]}" ]; then
-ui_err "Lua chon khong hop le"
+ui_err "❌ Lựa chọn không hợp lệ"
 rm -rf "$tmpdir"
 return
 fi
@@ -680,19 +682,19 @@ fi
 done
 
 echo ""
-ui_info "Video da chon: $video_name"
-printf "%bMay dang co:%b %b%s%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "${#HAVE_DEVICES[@]}" "$RESET"
-printf "%bMay con thieu:%b %b%s%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "${#MISSING_DEVICES[@]}" "$RESET"
+ui_info "Video đã chọn: $video_name"
+printf "%bMáy đang có:%b %b%s%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "${#HAVE_DEVICES[@]}" "$RESET"
+printf "%bMáy còn thiếu:%b %b%s%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "${#MISSING_DEVICES[@]}" "$RESET"
 
 if [ "${#MISSING_DEVICES[@]}" -gt 0 ]; then
 echo ""
-printf "%bTu dong dong bo sang may con thieu roi phat? (y/n):%b " "$BRIGHT_MAGENTA$BOLD" "$RESET"
+printf "%bTự động đồng bộ sang máy còn thiếu rồi phát? (y/n):%b " "$BRIGHT_MAGENTA$BOLD" "$RESET"
 read syncans
 
 case "$syncans" in
 y|Y)
 if [ -z "$source_dev" ]; then
-ui_err "Khong tim duoc may nguon co video."
+ui_err "❌ Không tìm được máy nguồn có video."
 rm -rf "$tmpdir"
 return
 fi
@@ -700,18 +702,18 @@ fi
 local_file="$CACHE_DIR/$video_name"
 
 if [ ! -f "$local_file" ]; then
-ui_info "Dang pull tu $(get_name_by_ip "$source_dev") ($source_dev)"
+ui_info "⬇ Đang pull từ $(get_name_by_ip "$source_dev") ($source_dev)"
 adb -s "$source_dev" pull "/sdcard/Download/$video_name" "$local_file" >/dev/null 2>&1 || {
-ui_err "Pull that bai"
+ui_err "❌ Pull thất bại"
 rm -rf "$tmpdir"
 return
 }
 else
-ui_warn "Dung file cache: $local_file"
+ui_warn "📦 Dùng file cache: $local_file"
 fi
 
 echo ""
-ui_info "Dang push sang may con thieu..."
+ui_info "📤 Đang push sang máy còn thiếu..."
 for dev in "${MISSING_DEVICES[@]}"; do
 printf "%b→%b %b%s%b %b(%s)%b\n" \
 "$BRIGHT_WHITE$BOLD" "$RESET" \
@@ -724,7 +726,7 @@ esac
 fi
 
 echo ""
-ui_info "Dang mo video tren cac may da chon..."
+ui_info "▶ Đang mở video trên các máy đã chọn..."
 for dev in "${SELECTED_DEVICES[@]}"; do
 printf "%b→%b %b%s%b %b(%s)%b\n" \
 "$BRIGHT_WHITE$BOLD" "$RESET" \
@@ -738,7 +740,7 @@ rm -rf "$tmpdir"
 
 show_device_names_file() {
 echo ""
-ui_info "Danh sach ten may/IP dang luu o:"
+ui_info "Danh sách tên máy/IP đang lưu ở:"
 printf "%b%s%b\n" "$BRIGHT_YELLOW$BOLD" "$DEVICE_FILE" "$RESET"
 echo ""
 while IFS= read -r line; do
@@ -749,17 +751,17 @@ done < "$DEVICE_FILE"
 menu() {
 local choice
 ui_title
-printf "%b1)%b %b📡 Quet IP va connect%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
-printf "%b2)%b %b🔗 Connect IP thu cong%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
-printf "%b3)%b %b📋 Xem thiet bi dang connect%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
-printf "%b4)%b %b📤 Push video len thiet bi%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_MAGENTA$BOLD" "$RESET"
-printf "%b5)%b %b▶ Mo / phat video theo ten video da nho%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_BLUE$BOLD" "$RESET"
-printf "%b6)%b %b🎬 Xem video dat nguong va chon mo luon%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
-printf "%b7)%b %b🔄 Chon video dat nguong roi tu dong dong bo + phat%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
-printf "%b8)%b %b🗂 Xem danh sach ten may/IP%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
-printf "%b9)%b %b✖ Thoat%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_RED$BOLD" "$RESET"
+printf "%b1)%b %b📡 Quét IP và connect%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%b2)%b %b🔗 Connect IP thủ công%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
+printf "%b3)%b %b📋 Xem thiết bị đang connect%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
+printf "%b4)%b %b📤 Push video lên thiết bị%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_MAGENTA$BOLD" "$RESET"
+printf "%b5)%b %b▶ Mở / phát video theo tên video đã nhớ%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_BLUE$BOLD" "$RESET"
+printf "%b6)%b %b🎬 Xem video đạt ngưỡng và chọn mở luôn%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%b7)%b %b🔄 Chọn video đạt ngưỡng rồi tự đồng bộ + phát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
+printf "%b8)%b %b🗂 Xem danh sách tên máy/IP%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
+printf "%b9)%b %b✖ Thoát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_RED$BOLD" "$RESET"
 ui_line
-printf "%bChon:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
+printf "%bChọn:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
 read choice
 
 case "$choice" in
@@ -772,7 +774,7 @@ case "$choice" in
 7) pick_threshold_video_sync_and_play; pause_enter ;;
 8) show_device_names_file; pause_enter ;;
 9) exit 0 ;;
-*) ui_err "Lua chon khong hop le"; pause_enter ;;
+*) ui_err "❌ Lựa chọn không hợp lệ"; pause_enter ;;
 esac
 }
 
