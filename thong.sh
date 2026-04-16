@@ -298,37 +298,60 @@ local url="https://thong-url-1.onrender.com"
 echo ""
 ui_info "🌐 Đang mở trang web upload trên thiết bị này..."
 
+if [ -x /system/bin/am ]; then
+/system/bin/am start -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web bằng /system/bin/am"
+return 0
+}
+fi
+
+if [ -x /system/bin/cmd ]; then
+/system/bin/cmd activity start-activity -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web bằng /system/bin/cmd"
+return 0
+}
+/system/bin/cmd activity start -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web bằng /system/bin/cmd"
+return 0
+}
+fi
+
 if command -v am >/dev/null 2>&1; then
 am start -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
-ui_ok "✅ Đã mở web trên Android"
+ui_ok "✅ Đã mở web bằng am"
 return 0
 }
 fi
 
 if command -v cmd >/dev/null 2>&1; then
+cmd activity start-activity -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web bằng cmd"
+return 0
+}
 cmd activity start -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
-ui_ok "✅ Đã mở web trên Android"
+ui_ok "✅ Đã mở web bằng cmd"
 return 0
 }
 fi
 
 if command -v uiopen >/dev/null 2>&1; then
 uiopen "$url" >/dev/null 2>&1 && {
-ui_ok "✅ Đã mở web trên iOS / iSH"
+ui_ok "✅ Đã gửi lệnh mở web trên iOS / iSH"
 return 0
 }
 fi
 
 if command -v open >/dev/null 2>&1; then
 open "$url" >/dev/null 2>&1 && {
-ui_ok "✅ Đã mở web trên iOS / iSH"
+ui_ok "✅ Đã gửi lệnh mở web trên iOS / iSH"
 return 0
 }
 fi
 
-ui_err "❌ Không mở được web trên thiết bị này"
-ui_dim "URL: $url"
-return 1
+ui_warn "⚠ Không mở tự động được."
+ui_warn "Hãy copy link bên dưới để mở tay:"
+printf "%b%s%b\n" "$BRIGHT_YELLOW$BOLD" "$url" "$RESET"
+return 0
 }
 
 pick_video_path() {
@@ -971,7 +994,7 @@ printf "%b6)%b %b🎬 Xem video đạt ngưỡng và chọn mở luôn%b\n" "$BR
 printf "%b7)%b %b🔄 Chọn video đạt ngưỡng rồi tự đồng bộ + phát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
 printf "%b8)%b %b🗂 Xem danh sách tên máy/IP%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
 printf "%b9)%b %b🌐 Tải video từ URL vào cache tạm rồi push%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
-printf "%b10)%b %b🌍 Mở web upload lấy link video%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_BLUE$BOLD" "$RESET"
+printf "%b10)%b %b🌍 Mở web upload (Android/iOS nếu được)%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_BLUE$BOLD" "$RESET"
 printf "%b0)%b %b✖ Thoát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_RED$BOLD" "$RESET"
 ui_line
 printf "%bChọn:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
