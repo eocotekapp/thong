@@ -202,8 +202,12 @@ echo "$ip"
 fi
 }
 
+adb_start_clean() {
+adb start-server >/dev/null 2>&1
+}
+
 list_connected_devices_raw() {
-adb devices | awk 'NR>1 && $2=="device" {print $1}'
+adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {print $1}'
 }
 
 list_connected_devices_named() {
@@ -298,37 +302,60 @@ local url="https://thong-url-1.onrender.com"
 echo ""
 ui_info "🌐 Đang mở trang web upload trên thiết bị này..."
 
+if [ -x /system/bin/am ]; then
+/system/bin/am start -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web bằng /system/bin/am"
+return 0
+}
+fi
+
+if [ -x /system/bin/cmd ]; then
+/system/bin/cmd activity start-activity -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web bằng /system/bin/cmd"
+return 0
+}
+/system/bin/cmd activity start -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web bằng /system/bin/cmd"
+return 0
+}
+fi
+
 if command -v am >/dev/null 2>&1; then
 am start -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
-ui_ok "✅ Đã mở web trên Android"
+ui_ok "✅ Đã mở web bằng am"
 return 0
 }
 fi
 
 if command -v cmd >/dev/null 2>&1; then
+cmd activity start-activity -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web bằng cmd"
+return 0
+}
 cmd activity start -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
-ui_ok "✅ Đã mở web trên Android"
+ui_ok "✅ Đã mở web bằng cmd"
 return 0
 }
 fi
 
 if command -v uiopen >/dev/null 2>&1; then
 uiopen "$url" >/dev/null 2>&1 && {
-ui_ok "✅ Đã mở web trên iOS / iSH"
+ui_ok "✅ Đã gửi lệnh mở web trên iOS / iSH"
 return 0
 }
 fi
 
 if command -v open >/dev/null 2>&1; then
 open "$url" >/dev/null 2>&1 && {
-ui_ok "✅ Đã mở web trên iOS / iSH"
+ui_ok "✅ Đã gửi lệnh mở web trên iOS / iSH"
 return 0
 }
 fi
 
-ui_err "❌ Không mở được web trên thiết bị này"
-ui_dim "URL: $url"
-return 1
+ui_warn "⚠ Không mở tự động được."
+ui_warn "Hãy copy link bên dưới để mở tay:"
+printf "%b%s%b\n" "$BRIGHT_YELLOW$BOLD" "$url" "$RESET"
+return 0
 }
 
 pick_video_path() {
@@ -362,12 +389,47 @@ VIDEO_NAME=$(basename "$file")
 return 0
 }
 
+port_open_5555() {
+local ip="$1"
+
+nc -z -w 1 "$ip" 5555 >/dev/null 2>&1 && return 0
+nc -z "$ip" 5555 >/dev/null 2>&1 && return 0
+
+if command -v timeout >/dev/null 2>&1; then
+timeout 1 sh -c "nc -z \"$ip\" 5555" >/dev/null 2>&1 && return 0
+fi
+
+return 1
+}
+
+scan_ip_worker() {
+local ip="$1"
+local connect_times="$2"
+
+port_open_5555 "$ip" || return 1
+
+printf "%b[5555 OPEN]%b %s:5555\n" "$BRIGHT_CYAN$BOLD" "$RESET" "$ip"
+
+if [ "$connect_times" -ge 1 ]; then
+adb connect "$ip:5555" >/dev/null 2>&1
+fi
+
+if [ "$connect_times" -ge 2 ]; then
+sleep 0.4
+adb connect "$ip:5555" >/dev/null 2>&1
+fi
+}
+
 scan_one_round() {
 local patterns="$1"
+local connect_times="${2:-1}"
 local pattern
 local base
 local ip
 local i
+
+adb_start_clean
+set +m 2>/dev/null
 
 for pattern in $patterns; do
 case "$pattern" in
@@ -375,11 +437,7 @@ case "$pattern" in
 base="${pattern%.xxx}"
 for i in $(seq 1 254); do
 ip="$base.$i"
-(
-ping -c 1 "$ip" >/dev/null 2>&1 && \
-nc -z "$ip" 5555 >/dev/null 2>&1 && \
-adb connect "$ip:5555" >/dev/null 2>&1
-) &
+scan_ip_worker "$ip" "$connect_times" &
 done
 ;;
 *)
@@ -389,6 +447,37 @@ esac
 done
 
 wait
+}
+
+show_open_port_summary() {
+local patterns="$1"
+local pattern
+local base
+local ip
+local i
+local found=0
+
+echo ""
+ui_info "📡 Danh sách IP đang mở cổng 5555:"
+
+for pattern in $patterns; do
+case "$pattern" in
+*.xxx)
+base="${pattern%.xxx}"
+for i in $(seq 1 254); do
+ip="$base.$i"
+if port_open_5555 "$ip"; then
+printf "%b- %s:5555%b\n" "$BRIGHT_GREEN$BOLD" "$ip" "$RESET"
+found=1
+fi
+done
+;;
+esac
+done
+
+if [ "$found" -eq 0 ]; then
+ui_warn "Không thấy IP nào mở port 5555 trong dải đã quét."
+fi
 }
 
 scan_ranges() {
@@ -411,7 +500,7 @@ fi
 
 echo ""
 ui_info "📡 Đang quét lần 1..."
-scan_one_round "$input"
+scan_one_round "$input" 1
 
 echo ""
 printf "%b🔁 Quét lại lần 2 để vượt xác minh ADB? (y/n):%b " "$BRIGHT_MAGENTA$BOLD" "$RESET"
@@ -421,13 +510,17 @@ case "$rescan" in
 y|Y)
 echo ""
 ui_info "📡 Đang quét lần 2..."
-scan_one_round "$input"
+scan_one_round "$input" 2
 ;;
 esac
 
 echo ""
+show_open_port_summary "$input"
+
+echo ""
 ui_ok "✅ Quét xong. Thiết bị đang connect:"
 list_connected_devices_named
+
 echo ""
 printf "%bNhấn Enter để hoàn tất việc quét...%b" "$BRIGHT_YELLOW$BOLD" "$RESET"
 read -r dummy
@@ -436,6 +529,8 @@ read -r dummy
 connect_manual() {
 local ips
 local dev
+
+adb_start_clean
 
 ui_info "Nhập 1 hoặc nhiều IP:port"
 ui_dim "Ví dụ:"
@@ -451,6 +546,8 @@ fi
 for dev in $ips; do
 printf "%b🔌 %s%b\n" "$BRIGHT_CYAN$BOLD" "$dev" "$RESET"
 adb connect "$dev"
+sleep 0.3
+adb connect "$dev" >/dev/null 2>&1
 done
 
 echo ""
@@ -971,7 +1068,7 @@ printf "%b6)%b %b🎬 Xem video đạt ngưỡng và chọn mở luôn%b\n" "$BR
 printf "%b7)%b %b🔄 Chọn video đạt ngưỡng rồi tự đồng bộ + phát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
 printf "%b8)%b %b🗂 Xem danh sách tên máy/IP%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
 printf "%b9)%b %b🌐 Tải video từ URL vào cache tạm rồi push%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
-printf "%b10)%b %b🌍 Mở web upload lấy link video%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_BLUE$BOLD" "$RESET"
+printf "%b10)%b %b🌍 Mở web upload (Android/iOS nếu được)%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_BLUE$BOLD" "$RESET"
 printf "%b0)%b %b✖ Thoát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_RED$BOLD" "$RESET"
 ui_line
 printf "%bChọn:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
@@ -988,7 +1085,11 @@ case "$choice" in
 8) show_device_names_file; pause_enter ;;
 9) download_video_url_to_cache_and_push; pause_enter ;;
 10) open_upload_web_local; pause_enter ;;
-0) exit 0 ;;
+0)
+clear
+ui_ok "Đã thoát."
+exit 0
+;;
 *) ui_err "❌ Lựa chọn không hợp lệ"; pause_enter ;;
 esac
 }
@@ -1001,7 +1102,6 @@ trap cleanup_temp_files EXIT INT TERM
 init_device_file
 need_cmd bash
 need_cmd adb
-need_cmd ping
 need_cmd nc
 need_cmd grep
 need_cmd awk
@@ -1009,6 +1109,8 @@ need_cmd sort
 need_cmd uniq
 need_cmd sed
 need_cmd curl
+
+adb_start_clean
 
 while true; do
 menu
