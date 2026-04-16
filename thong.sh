@@ -292,6 +292,45 @@ local dst="$3"
 adb -s "$serial" pull "$src" "$dst"
 }
 
+open_upload_web_local() {
+local url="https://thong-url-1.onrender.com"
+
+echo ""
+ui_info "🌐 Đang mở trang web upload trên thiết bị này..."
+
+if command -v am >/dev/null 2>&1; then
+am start -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web trên Android"
+return 0
+}
+fi
+
+if command -v cmd >/dev/null 2>&1; then
+cmd activity start -a android.intent.action.VIEW -d "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web trên Android"
+return 0
+}
+fi
+
+if command -v uiopen >/dev/null 2>&1; then
+uiopen "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web trên iOS / iSH"
+return 0
+}
+fi
+
+if command -v open >/dev/null 2>&1; then
+open "$url" >/dev/null 2>&1 && {
+ui_ok "✅ Đã mở web trên iOS / iSH"
+return 0
+}
+fi
+
+ui_err "❌ Không mở được web trên thiết bị này"
+ui_dim "URL: $url"
+return 1
+}
+
 pick_video_path() {
 local last
 local file
@@ -932,6 +971,7 @@ printf "%b6)%b %b🎬 Xem video đạt ngưỡng và chọn mở luôn%b\n" "$BR
 printf "%b7)%b %b🔄 Chọn video đạt ngưỡng rồi tự đồng bộ + phát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
 printf "%b8)%b %b🗂 Xem danh sách tên máy/IP%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
 printf "%b9)%b %b🌐 Tải video từ URL vào cache tạm rồi push%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%b10)%b %b🌍 Mở web upload lấy link video%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_BLUE$BOLD" "$RESET"
 printf "%b0)%b %b✖ Thoát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_RED$BOLD" "$RESET"
 ui_line
 printf "%bChọn:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
@@ -947,6 +987,7 @@ case "$choice" in
 7) pick_threshold_video_sync_and_play; pause_enter ;;
 8) show_device_names_file; pause_enter ;;
 9) download_video_url_to_cache_and_push; pause_enter ;;
+10) open_upload_web_local; pause_enter ;;
 0) exit 0 ;;
 *) ui_err "❌ Lựa chọn không hợp lệ"; pause_enter ;;
 esac
