@@ -472,19 +472,19 @@ cat "$DEVICE_FILE"
 
 menu() {
 clear
-echo "================================="
-echo "        ADB TOOL MENU"
-echo "================================="
-echo "1) Quét IP và connect"
-echo "2) Connect IP thủ công"
-echo "3) Xem thiết bị đang connect"
-echo "4) Push video lên thiết bị"
-echo "5) Mở / phát video theo tên video đã nhớ"
-echo "6) Xem video có trên ít nhất $COMMON_THRESHOLD_PERCENT% máy đã chọn"
-echo "7) Chọn video đạt ngưỡng rồi tự đồng bộ + phát"
-echo "8) Xem danh sách tên máy/IP"
-echo "9) Thoát"
-echo "=============================="
+echo "===================================="
+echo "      ADB TOOL MENU ©Thoòng🤗"
+echo "===================================="
+echo "1) 🛰️Quét IP và connect"
+echo "2) 🔗Connect IP thủ công"
+echo "3) 📖Xem thiết bị đang connect"
+echo "4) 🔁Push video lên thiết bị"
+echo "5) 💽Mở / phát video theo tên video đã nhớ"
+echo "6) 💽Xem video có trên ít nhất $COMMON_THRESHOLD_PERCENT% máy đã chọn"
+echo "7) 💽Chọn video đạt ngưỡng rồi tự đồng bộ + phát"
+echo "8) 🧾Xem danh sách tên máy/IP"
+echo "9) ❌Thoát"
+echo "==================================="
 read -p "Chọn: " choice
 
 case "$choice" in
