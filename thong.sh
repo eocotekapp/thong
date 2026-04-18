@@ -1161,6 +1161,7 @@ need_cmd curl
 adb_start_clean
 
 while true; do
+clear
 menu
 done
 }
