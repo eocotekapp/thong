@@ -10,6 +10,8 @@ CACHE_DIR="$HOME/.adbtool_cache"
 TMP_URL_LIST="$CACHE_DIR/.tmp_url_files.txt"
 
 SAVED_IPS=(
+"100.117.125.74"
+"100.101.18.125"
 "10.48.154.1"
 "10.48.154.5"
 "10.48.154.152"
@@ -471,41 +473,75 @@ return 0
 }
 
 connect_saved_ip_list() {
-local tmp_ips
-local tmp_ok
+local tmp_ips="$CACHE_DIR/.saved_ips.tmp"
+local tmp_open="$CACHE_DIR/.open_ips.tmp"
+local tmp_ok="$CACHE_DIR/.ok_ips.tmp"
 local ip
 local dev
 local name
-local total
-local ok
-local fail
-local max_jobs=10
+local total=0
+local open_total=0
+local ok=0
+local fail=0
+local batch_size=12
+local c=0
 
 adb_start_clean
 set +m 2>/dev/null
 
-tmp_ips=$(mktemp)
-tmp_ok=$(mktemp)
+: > "$tmp_ips"
+: > "$tmp_open"
+: > "$tmp_ok"
 
 printf "%s\n" "${SAVED_IPS[@]}" | sort -u > "$tmp_ips"
 
 echo ""
-ui_info "🔗 Đang connect trực tiếp danh sách IP đã tổng hợp..."
+ui_info "📡 Đang lọc IP mở port 5555..."
 
 while IFS= read -r ip; do
 [ -z "$ip" ] && continue
 
-while [ "$(jobs -rp | wc -l | tr -d ' ')" -ge "$max_jobs" ]; do
-sleep 0.02
-done
+(
+nc -w 1 "$ip" 5555 </dev/null >/dev/null 2>&1 && echo "$ip" >> "$tmp_open"
+) &
+
+c=$((c+1))
+if [ "$c" -ge "$batch_size" ]; then
+wait
+c=0
+fi
+done < "$tmp_ips"
+
+wait
+sort -u "$tmp_open" -o "$tmp_open"
+
+if [ ! -s "$tmp_open" ]; then
+echo ""
+ui_warn "Không có IP nào mở port 5555."
+rm -f "$tmp_ips" "$tmp_open" "$tmp_ok"
+return
+fi
+
+echo ""
+ui_info "🔗 Đang connect 2 lần tới các IP online..."
+
+c=0
+while IFS= read -r ip; do
+[ -z "$ip" ] && continue
 
 (
 dev="$ip:5555"
-adb connect "$dev" >/dev/null 2>&1 || true
-sleep 0.12
-adb connect "$dev" >/dev/null 2>&1 || true
+adb connect "$dev" >/dev/null 2>&1
+sleep 0.15
+adb connect "$dev" >/dev/null 2>&1
 ) &
-done < "$tmp_ips"
+
+c=$((c+1))
+if [ "$c" -ge "$batch_size" ]; then
+wait
+c=0
+fi
+done < "$tmp_open"
 
 wait
 
@@ -522,18 +558,20 @@ printf "%b✅%b %b%s%b %b(%s)%b\n" \
 done < "$tmp_ok"
 
 total=$(wc -l < "$tmp_ips" | tr -d ' ')
+open_total=$(wc -l < "$tmp_open" | tr -d ' ')
 ok=$(wc -l < "$tmp_ok" | tr -d ' ')
-fail=$((total - ok))
+fail=$((open_total - ok))
 
 echo ""
-ui_info "Tổng IP đã thử connect: $total"
-ui_info "Kết quả: OK=$ok | FAIL=$fail"
+ui_info "Tổng IP trong danh sách: $total"
+ui_info "IP mở port 5555: $open_total"
+ui_info "Kết quả connect: OK=$ok | FAIL=$fail"
 
 echo ""
 ui_ok "✅ Thiết bị đang connect:"
 list_connected_devices_named
 
-rm -f "$tmp_ips" "$tmp_ok"
+rm -f "$tmp_ips" "$tmp_open" "$tmp_ok"
 }
 
 connect_manual() {
@@ -1069,7 +1107,7 @@ done < "$DEVICE_FILE"
 menu() {
 local choice
 ui_title
-printf "%b1)%b %b🔗 Connect toàn bộ IP đã tổng hợp (2 lần)%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%b1)%b %b🔗 Lọc IP mở 5555 rồi connect 2 lần%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
 printf "%b2)%b %b🔗 Connect IP thủ công%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
 printf "%b3)%b %b📋 Xem thiết bị đang connect%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
 printf "%b4)%b %b📤 Push video lên thiết bị%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_MAGENTA$BOLD" "$RESET"
@@ -1112,6 +1150,7 @@ trap cleanup_temp_files EXIT INT TERM
 init_device_file
 need_cmd bash
 need_cmd adb
+need_cmd nc
 need_cmd grep
 need_cmd awk
 need_cmd sort
