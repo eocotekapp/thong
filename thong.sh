@@ -9,7 +9,6 @@ COMMON_THRESHOLD_PERCENT=60
 CACHE_DIR="$HOME/.adbtool_cache"
 TMP_URL_LIST="$CACHE_DIR/.tmp_url_files.txt"
 
-# Danh sach IP da tong hop, bo port di, muc 1 se dung list nay de loc online roi connect
 SAVED_IPS=(
 "10.48.154.1"
 "10.48.154.5"
@@ -473,55 +472,25 @@ return 0
 
 connect_saved_ip_list() {
 local tmp_ips
-local tmp_online
 local tmp_ok
 local ip
 local dev
 local name
 local total
-local online
 local ok
 local fail
-local max_jobs=24
+local max_jobs=10
 
 adb_start_clean
 set +m 2>/dev/null
 
 tmp_ips=$(mktemp)
-tmp_online=$(mktemp)
 tmp_ok=$(mktemp)
 
 printf "%s\n" "${SAVED_IPS[@]}" | sort -u > "$tmp_ips"
 
 echo ""
-ui_info "📡 Đang ping 1 lần để lọc IP online..."
-
-while IFS= read -r ip; do
-[ -z "$ip" ] && continue
-
-while [ "$(jobs -rp | wc -l | tr -d ' ')" -ge "$max_jobs" ]; do
-sleep 0.02
-done
-
-(
-ping -c 1 -W 1 "$ip" >/dev/null 2>&1 && echo "$ip" >> "$tmp_online"
-) &
-done < "$tmp_ips"
-
-wait
-sort -u "$tmp_online" -o "$tmp_online"
-
-online=$(wc -l < "$tmp_online" | tr -d ' ')
-
-if [ "$online" = "0" ]; then
-echo ""
-ui_warn "Không có IP nào đang online."
-rm -f "$tmp_ips" "$tmp_online" "$tmp_ok"
-return
-fi
-
-echo ""
-ui_info "🔗 Đang connect 2 lần với các IP online..."
+ui_info "🔗 Đang connect trực tiếp danh sách IP đã tổng hợp..."
 
 while IFS= read -r ip; do
 [ -z "$ip" ] && continue
@@ -533,16 +502,14 @@ done
 (
 dev="$ip:5555"
 adb connect "$dev" >/dev/null 2>&1 || true
-sleep 0.08
+sleep 0.12
 adb connect "$dev" >/dev/null 2>&1 || true
 ) &
-done < "$tmp_online"
+done < "$tmp_ips"
 
 wait
 
-adb devices 2>/dev/null \
-| awk 'NR>1 && $1 ~ /:5555$/ && $2=="device" {print $1}' \
-| sort -u > "$tmp_ok"
+adb devices 2>/dev/null | awk 'NR>1 && $1 ~ /:5555$/ && $2=="device" {print $1}' | sort -u > "$tmp_ok"
 
 echo ""
 while IFS= read -r dev; do
@@ -556,18 +523,17 @@ done < "$tmp_ok"
 
 total=$(wc -l < "$tmp_ips" | tr -d ' ')
 ok=$(wc -l < "$tmp_ok" | tr -d ' ')
-fail=$((online - ok))
+fail=$((total - ok))
 
 echo ""
-ui_info "Tổng IP trong danh sách: $total"
-ui_info "IP online: $online"
-ui_info "Kết quả connect: OK=$ok | FAIL=$fail"
+ui_info "Tổng IP đã thử connect: $total"
+ui_info "Kết quả: OK=$ok | FAIL=$fail"
 
 echo ""
 ui_ok "✅ Thiết bị đang connect:"
 list_connected_devices_named
 
-rm -f "$tmp_ips" "$tmp_online" "$tmp_ok"
+rm -f "$tmp_ips" "$tmp_ok"
 }
 
 connect_manual() {
@@ -1103,7 +1069,7 @@ done < "$DEVICE_FILE"
 menu() {
 local choice
 ui_title
-printf "%b1)%b %b🔗 Ping 1 lần -> lấy IP online -> connect 2 lần%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%b1)%b %b🔗 Connect toàn bộ IP đã tổng hợp (2 lần)%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
 printf "%b2)%b %b🔗 Connect IP thủ công%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
 printf "%b3)%b %b📋 Xem thiết bị đang connect%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
 printf "%b4)%b %b📤 Push video lên thiết bị%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_MAGENTA$BOLD" "$RESET"
@@ -1146,7 +1112,6 @@ trap cleanup_temp_files EXIT INT TERM
 init_device_file
 need_cmd bash
 need_cmd adb
-need_cmd ping
 need_cmd grep
 need_cmd awk
 need_cmd sort
