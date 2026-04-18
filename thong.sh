@@ -9,6 +9,89 @@ COMMON_THRESHOLD_PERCENT=60
 CACHE_DIR="$HOME/.adbtool_cache"
 TMP_URL_LIST="$CACHE_DIR/.tmp_url_files.txt"
 
+# Danh sach IP da tong hop, bo port di, muc 1 se dung list nay de connect
+SAVED_IPS=(
+"10.48.154.1"
+"10.48.154.5"
+"10.48.154.152"
+"10.48.154.122"
+"10.48.154.125"
+"10.48.154.217"
+"10.48.154.75"
+"10.48.154.151"
+"10.48.154.177"
+"10.48.154.137"
+"10.48.154.249"
+"10.48.154.154"
+"10.48.154.83"
+"10.48.154.85"
+"10.48.154.193"
+"10.48.154.196"
+"10.48.154.175"
+"10.48.154.22"
+"10.48.154.63"
+"10.48.154.250"
+"10.48.154.252"
+"10.48.154.107"
+"10.48.154.50"
+"10.48.155.26"
+"10.48.155.58"
+"10.48.155.128"
+"10.48.155.145"
+"10.48.155.253"
+"10.48.155.92"
+"10.48.155.62"
+"10.48.155.29"
+"10.48.155.82"
+"10.48.155.171"
+"10.48.155.59"
+"10.48.155.173"
+"10.48.155.61"
+"10.48.155.248"
+"10.48.155.50"
+"10.48.155.228"
+"10.48.155.240"
+"10.48.155.115"
+"10.48.155.97"
+"10.48.155.244"
+"10.48.155.48"
+"10.48.155.32"
+"10.48.155.201"
+"10.48.155.191"
+"10.48.155.68"
+"10.48.155.27"
+"10.48.155.30"
+"10.48.155.125"
+"10.48.155.83"
+"10.48.155.86"
+"10.48.155.36"
+"10.48.155.245"
+"10.48.155.57"
+"10.48.154.98"
+"10.48.154.101"
+"10.48.154.102"
+"10.48.154.103"
+"10.48.154.109"
+"10.48.154.110"
+"10.48.154.113"
+"10.48.154.116"
+"10.48.154.118"
+"10.48.154.134"
+"10.48.154.147"
+"10.48.154.149"
+"10.48.154.158"
+"10.48.154.183"
+"10.48.154.209"
+"10.48.154.234"
+"10.48.154.243"
+"10.48.155.47"
+"100.101.18.125"
+"10.48.155.129"
+"10.48.155.172"
+"10.48.155.203"
+"10.48.155.238"
+)
+
 ESC=$'\033'
 RESET="${ESC}[0m"
 BOLD="${ESC}[1m"
@@ -402,128 +485,74 @@ fi
 return 1
 }
 
-scan_ip_worker() {
-local ip="$1"
-local connect_times="$2"
-
-port_open_5555 "$ip" || return 1
-
-printf "%b[5555 OPEN]%b %s:5555\n" "$BRIGHT_CYAN$BOLD" "$RESET" "$ip"
-
-if [ "$connect_times" -ge 1 ]; then
-adb connect "$ip:5555" >/dev/null 2>&1
-fi
-
-if [ "$connect_times" -ge 2 ]; then
-sleep 0.4
-adb connect "$ip:5555" >/dev/null 2>&1
-fi
+probe_saved_ips_parallel() {
+local ip
+for ip in "${SAVED_IPS[@]}"; do
+(
+port_open_5555 "$ip" && echo "$ip"
+) &
+done
+wait
 }
 
-scan_one_round() {
-local patterns="$1"
-local connect_times="${2:-1}"
-local pattern
-local base
+connect_saved_ip_list() {
+local tmp_open
 local ip
-local i
+local dev
+local name
+local ok=0
+local fail=0
+local total=0
 
 adb_start_clean
 set +m 2>/dev/null
 
-for pattern in $patterns; do
-case "$pattern" in
-*.xxx)
-base="${pattern%.xxx}"
-for i in $(seq 1 254); do
-ip="$base.$i"
-scan_ip_worker "$ip" "$connect_times" &
-done
-;;
-*)
-ui_warn "⚠ Bỏ qua mẫu không hợp lệ: $pattern"
-;;
-esac
-done
-
-wait
-}
-
-show_open_port_summary() {
-local patterns="$1"
-local pattern
-local base
-local ip
-local i
-local found=0
+tmp_open=$(mktemp)
 
 echo ""
-ui_info "📡 Danh sách IP đang mở cổng 5555:"
+ui_info "📡 Đang kiểm tra danh sách IP đã tổng hợp..."
 
-for pattern in $patterns; do
-case "$pattern" in
-*.xxx)
-base="${pattern%.xxx}"
-for i in $(seq 1 254); do
-ip="$base.$i"
-if port_open_5555 "$ip"; then
-printf "%b- %s:5555%b\n" "$BRIGHT_GREEN$BOLD" "$ip" "$RESET"
-found=1
-fi
-done
-;;
-esac
-done
+probe_saved_ips_parallel | sort -u > "$tmp_open"
 
-if [ "$found" -eq 0 ]; then
-ui_warn "Không thấy IP nào mở port 5555 trong dải đã quét."
-fi
-}
-
-scan_ranges() {
-local input
-local rescan
-
-ui_info "Nhập 1 hoặc nhiều dải IP."
-ui_dim "Ví dụ:"
-ui_dim "10.48.154.xxx"
-ui_dim "10.48.154.xxx 10.48.155.xxx"
-ui_dim "10.48.154.xxx,10.48.155.xxx"
-printf "%bDải IP cần quét:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
-read -r input
-
-input=$(echo "$input" | tr ',' ' ')
-if [ -z "$input" ]; then
-ui_err "❌ Chưa nhập dải IP"
+if [ ! -s "$tmp_open" ]; then
+ui_warn "Không có IP nào mở port 5555 trong danh sách đã lưu."
+rm -f "$tmp_open"
 return
 fi
 
 echo ""
-ui_info "📡 Đang quét lần 1..."
-scan_one_round "$input" 1
+ui_info "🔗 Đang connect các IP mở port 5555..."
+
+while IFS= read -r ip; do
+[ -z "$ip" ] && continue
+total=$((total+1))
+dev="$ip:5555"
+
+adb connect "$dev" >/dev/null 2>&1
+sleep 0.35
+adb connect "$dev" >/dev/null 2>&1
+
+if adb devices 2>/dev/null | awk -v s="$dev" 'NR>1 && $1==s && $2=="device" {found=1} END{exit !found}'; then
+name=$(get_name_by_ip "$dev")
+printf "%b✅%b %b%s%b %b(%s)%b\n" \
+"$BRIGHT_GREEN$BOLD" "$RESET" \
+"$BRIGHT_GREEN$BOLD" "$name" "$RESET" \
+"$DIM$BRIGHT_WHITE" "$dev" "$RESET"
+ok=$((ok+1))
+else
+fail=$((fail+1))
+fi
+done < "$tmp_open"
+
+rm -f "$tmp_open"
 
 echo ""
-printf "%b🔁 Quét lại lần 2 để vượt xác minh ADB? (y/n):%b " "$BRIGHT_MAGENTA$BOLD" "$RESET"
-read -r rescan
-
-case "$rescan" in
-y|Y)
-echo ""
-ui_info "📡 Đang quét lần 2..."
-scan_one_round "$input" 2
-;;
-esac
+ui_info "Tổng IP mở port 5555 đã thử connect: $total"
+ui_info "Kết quả: OK=$ok | FAIL=$fail"
 
 echo ""
-show_open_port_summary "$input"
-
-echo ""
-ui_ok "✅ Quét xong. Thiết bị đang connect:"
+ui_ok "✅ Thiết bị đang connect:"
 list_connected_devices_named
-
-echo ""
-printf "%bNhấn Enter để hoàn tất việc quét...%b" "$BRIGHT_YELLOW$BOLD" "$RESET"
-read -r dummy
 }
 
 connect_manual() {
@@ -1059,7 +1088,7 @@ done < "$DEVICE_FILE"
 menu() {
 local choice
 ui_title
-printf "%b1)%b %b📡 Quét IP và connect%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%b1)%b %b🔗 Connect toàn bộ IP đã tổng hợp%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
 printf "%b2)%b %b🔗 Connect IP thủ công%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
 printf "%b3)%b %b📋 Xem thiết bị đang connect%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
 printf "%b4)%b %b📤 Push video lên thiết bị%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_MAGENTA$BOLD" "$RESET"
@@ -1075,7 +1104,7 @@ printf "%bChọn:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
 read -r choice
 
 case "$choice" in
-1) scan_ranges ;;
+1) connect_saved_ip_list; pause_enter ;;
 2) connect_manual; pause_enter ;;
 3) echo ""; list_connected_devices_named; pause_enter ;;
 4) push_to_selected; pause_enter ;;
