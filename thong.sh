@@ -266,8 +266,8 @@ empty=$((width - filled))
 
 #thay thanh Loadding
 
-bar_filled=$(printf "%${filled}s" "" | tr ' ' '➤')
-bar_empty=$(printf "%${empty}s" "" | tr ' ' '.')
+bar_filled=$(printf "%${filled}s" "" | tr ' ' '★')
+bar_empty=$(printf "%${empty}s" "" | tr ' ' '~')
 
 printf "\r%b[%s%s] %3d%% (%d/%d)%b" \
 "$BRIGHT_CYAN$BOLD" \
