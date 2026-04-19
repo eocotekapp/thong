@@ -264,7 +264,9 @@ percent=$((done * 100 / total))
 filled=$((done * width / total))
 empty=$((width - filled))
 
-bar_filled=$(printf "%${filled}s" "" | tr ' ' '#')
+#thay thanh Loadding
+
+bar_filled=$(printf "%${filled}s" "" | tr ' ' '➤')
 bar_empty=$(printf "%${empty}s" "" | tr ' ' '.')
 
 printf "\r%b[%s%s] %3d%% (%d/%d)%b" \
