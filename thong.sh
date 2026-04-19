@@ -247,6 +247,48 @@ ui_dim() {
 printf "%b%s%b\n" "$DIM$BRIGHT_WHITE" "$1" "$RESET"
 }
 
+draw_progress_bar() {
+local done="$1"
+local total="$2"
+local width=30
+local percent=0
+local filled=0
+local empty=0
+local bar_filled=""
+local bar_empty=""
+
+[ "$total" -le 0 ] && total=1
+
+percent=$((done * 100 / total))
+filled=$((done * width / total))
+empty=$((width - filled))
+
+bar_filled=$(printf "%${filled}s" "" | tr ' ' '#')
+bar_empty=$(printf "%${empty}s" "" | tr ' ' '.')
+
+printf "\r%b[%s%s] %3d%% (%d/%d)%b" \
+"$BRIGHT_CYAN$BOLD" \
+"$bar_filled" "$bar_empty" \
+"$percent" "$done" "$total" \
+"$RESET"
+}
+
+show_progress_until_done() {
+local progress_file="$1"
+local total="$2"
+local done=0
+
+while true; do
+done=$(wc -l < "$progress_file" 2>/dev/null | tr -d ' ')
+[ -z "$done" ] && done=0
+draw_progress_bar "$done" "$total"
+[ "$done" -ge "$total" ] && break
+sleep 0.1
+done
+
+echo ""
+}
+
 intro_animation() {
 local title="ADB TOOL MENU - ©Thoòng 🤗"
 local i
@@ -476,6 +518,8 @@ connect_saved_ip_list() {
 local tmp_ips="$CACHE_DIR/.saved_ips.tmp"
 local tmp_open="$CACHE_DIR/.open_ips.tmp"
 local tmp_ok="$CACHE_DIR/.ok_ips.tmp"
+local tmp_progress_scan="$CACHE_DIR/.progress_scan.tmp"
+local tmp_progress_connect="$CACHE_DIR/.progress_connect.tmp"
 local ip
 local dev
 local name
@@ -492,8 +536,11 @@ set +m 2>/dev/null
 : > "$tmp_ips"
 : > "$tmp_open"
 : > "$tmp_ok"
+: > "$tmp_progress_scan"
+: > "$tmp_progress_connect"
 
 printf "%s\n" "${SAVED_IPS[@]}" | sort -u > "$tmp_ips"
+total=$(wc -l < "$tmp_ips" | tr -d ' ')
 
 echo ""
 ui_info "📡 Đang lọc IP mở port 5555..."
@@ -503,6 +550,7 @@ while IFS= read -r ip; do
 
 (
 nc -w 1 "$ip" 5555 </dev/null >/dev/null 2>&1 && echo "$ip" >> "$tmp_open"
+echo 1 >> "$tmp_progress_scan"
 ) &
 
 c=$((c+1))
@@ -512,13 +560,16 @@ c=0
 fi
 done < "$tmp_ips"
 
+show_progress_until_done "$tmp_progress_scan" "$total"
+
 wait
 sort -u "$tmp_open" -o "$tmp_open"
+open_total=$(wc -l < "$tmp_open" | tr -d ' ')
 
 if [ ! -s "$tmp_open" ]; then
 echo ""
 ui_warn "Không có IP nào mở port 5555."
-rm -f "$tmp_ips" "$tmp_open" "$tmp_ok"
+rm -f "$tmp_ips" "$tmp_open" "$tmp_ok" "$tmp_progress_scan" "$tmp_progress_connect"
 return
 fi
 
@@ -534,6 +585,7 @@ dev="$ip:5555"
 adb connect "$dev" >/dev/null 2>&1
 sleep 0.15
 adb connect "$dev" >/dev/null 2>&1
+echo 1 >> "$tmp_progress_connect"
 ) &
 
 c=$((c+1))
@@ -542,6 +594,8 @@ wait
 c=0
 fi
 done < "$tmp_open"
+
+show_progress_until_done "$tmp_progress_connect" "$open_total"
 
 wait
 
@@ -557,8 +611,6 @@ printf "%b✅%b %b%s%b %b(%s)%b\n" \
 "$DIM$BRIGHT_WHITE" "$dev" "$RESET"
 done < "$tmp_ok"
 
-total=$(wc -l < "$tmp_ips" | tr -d ' ')
-open_total=$(wc -l < "$tmp_open" | tr -d ' ')
 ok=$(wc -l < "$tmp_ok" | tr -d ' ')
 fail=$((open_total - ok))
 
@@ -571,7 +623,7 @@ echo ""
 ui_ok "✅ Thiết bị đang connect:"
 list_connected_devices_named
 
-rm -f "$tmp_ips" "$tmp_open" "$tmp_ok"
+rm -f "$tmp_ips" "$tmp_open" "$tmp_ok" "$tmp_progress_scan" "$tmp_progress_connect"
 }
 
 connect_manual() {
