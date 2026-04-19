@@ -1,4 +1,4 @@
-#ver 1.2
+#ver 1.3
 #!/usr/bin/env bash
 
 export LANG=en_US.UTF-8
@@ -254,14 +254,12 @@ local done="$2"
 local total="$3"
 local color="$4"
 local spin_idx="$5"
-local width=28
+local width=20
 local percent=0
 local filled=0
 local empty=0
 local filled_bar=""
 local empty_bar=""
-local spinner_chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
-local spinner=""
 
 [ "$total" -le 0 ] && total=1
 
@@ -269,16 +267,14 @@ percent=$((done * 100 / total))
 filled=$((done * width / total))
 empty=$((width - filled))
 
-filled_bar=$(printf "%${filled}s" "" | tr ' ' '█')
-empty_bar=$(printf "%${empty}s" "" | tr ' ' '░')
+filled_bar=$(printf "%${filled}s" "" | sed 's/ /🇻🇳/g')
+empty_bar=$(printf "%${empty}s" "" | tr ' ' '·')
 
-spinner="${spinner_chars:$((spin_idx % 10)):1}"
-
-printf "\r%b%s%b %s %b[%s%s]%b %3d%% (%d/%d)" \
-"$color$BOLD" "$spinner" "$RESET" \
-"$label" \
-"$color$BOLD" "$filled_bar" "$empty_bar" "$RESET" \
-"$percent" "$done" "$total"
+printf "\r%b%s%b %b[%s%b%b%s%b] %3d%% (%d/%d)%b" \
+"$color$BOLD" "$label" "$RESET" \
+"$color$BOLD" "$filled_bar" "$RESET" \
+"$BRIGHT_BLACK" "$empty_bar" "$RESET" \
+"$percent" "$done" "$total" "$RESET"
 }
 
 show_progress_until_done() {
