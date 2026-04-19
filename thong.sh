@@ -1,4 +1,4 @@
-#ver 1.4
+#ver 1.5
 #!/usr/bin/env bash
 
 export LANG=en_US.UTF-8
@@ -248,9 +248,12 @@ ui_dim() {
 printf "%b%s%b\n" "$DIM$BRIGHT_WHITE" "$1" "$RESET"
 }
 
-draw_progress_bar() {
-local done="$1"
-local total="$2"
+draw_progress_bar_spinner() {
+local label="$1"
+local done="$2"
+local total="$3"
+local color="$4"
+local spin_idx="$5"
 local width=30
 local percent=0
 local filled=0
@@ -264,13 +267,11 @@ percent=$((done * 100 / total))
 filled=$((done * width / total))
 empty=$((width - filled))
 
-#thay thanh Loadding
-
-bar_filled=$(printf "%${filled}s" "" | tr ' ' '★')
-bar_empty=$(printf "%${empty}s" "" | tr ' ' '~')
+bar_filled=$(printf "%${filled}s" "" | tr ' ' '#')
+bar_empty=$(printf "%${empty}s" "" | tr ' ' '.')
 
 printf "\r%b[%s%s] %3d%% (%d/%d)%b" \
-"$BRIGHT_CYAN$BOLD" \
+"$color$BOLD" \
 "$bar_filled" "$bar_empty" \
 "$percent" "$done" "$total" \
 "$RESET"
@@ -279,14 +280,18 @@ printf "\r%b[%s%s] %3d%% (%d/%d)%b" \
 show_progress_until_done() {
 local progress_file="$1"
 local total="$2"
+local label="$3"
+local color="$4"
 local done=0
+local spin_idx=0
 
 while true; do
 done=$(wc -l < "$progress_file" 2>/dev/null | tr -d ' ')
 [ -z "$done" ] && done=0
-draw_progress_bar "$done" "$total"
+draw_progress_bar_spinner "$label" "$done" "$total" "$color" "$spin_idx"
 [ "$done" -ge "$total" ] && break
-sleep 0.1
+spin_idx=$((spin_idx + 1))
+sleep 0.05
 done
 
 echo ""
@@ -531,7 +536,8 @@ local open_total=0
 local ok=0
 local fail=0
 local batch_size=12
-local c=0
+local progress_pid=""
+local running=0
 
 adb_start_clean
 set +m 2>/dev/null
@@ -548,23 +554,26 @@ total=$(wc -l < "$tmp_ips" | tr -d ' ')
 echo ""
 ui_info "📡 Đang lọc IP mở port 5555..."
 
+show_progress_until_done "$tmp_progress_scan" "$total" "" "$BRIGHT_CYAN" &
+progress_pid=$!
+
 while IFS= read -r ip; do
 [ -z "$ip" ] && continue
+
+while :; do
+running=$(jobs -pr | wc -l | tr -d ' ')
+[ -z "$running" ] && running=0
+[ "$running" -lt $((batch_size + 1)) ] && break
+sleep 0.02
+done
 
 (
 nc -w 1 "$ip" 5555 </dev/null >/dev/null 2>&1 && echo "$ip" >> "$tmp_open"
 echo 1 >> "$tmp_progress_scan"
 ) &
-
-c=$((c+1))
-if [ "$c" -ge "$batch_size" ]; then
-wait
-c=0
-fi
 done < "$tmp_ips"
 
-show_progress_until_done "$tmp_progress_scan" "$total"
-
+wait "$progress_pid" 2>/dev/null
 wait
 sort -u "$tmp_open" -o "$tmp_open"
 open_total=$(wc -l < "$tmp_open" | tr -d ' ')
@@ -579,9 +588,18 @@ fi
 echo ""
 ui_info "🔗 Đang connect 2 lần tới các IP online..."
 
-c=0
+show_progress_until_done "$tmp_progress_connect" "$open_total" "" "$BRIGHT_GREEN" &
+progress_pid=$!
+
 while IFS= read -r ip; do
 [ -z "$ip" ] && continue
+
+while :; do
+running=$(jobs -pr | wc -l | tr -d ' ')
+[ -z "$running" ] && running=0
+[ "$running" -lt $((batch_size + 1)) ] && break
+sleep 0.02
+done
 
 (
 dev="$ip:5555"
@@ -590,16 +608,9 @@ sleep 0.15
 adb connect "$dev" >/dev/null 2>&1
 echo 1 >> "$tmp_progress_connect"
 ) &
-
-c=$((c+1))
-if [ "$c" -ge "$batch_size" ]; then
-wait
-c=0
-fi
 done < "$tmp_open"
 
-show_progress_until_done "$tmp_progress_connect" "$open_total"
-
+wait "$progress_pid" 2>/dev/null
 wait
 
 adb devices 2>/dev/null | awk 'NR>1 && $1 ~ /:5555$/ && $2=="device" {print $1}' | sort -u > "$tmp_ok"
@@ -1183,12 +1194,10 @@ need_cmd curl
 adb_start_clean
 
 echo ""
-ui_info "🚀 Tự động quét và connect IP khi mở app..."
+ui_info "🚀 Tự động lọc IP mở 5555 và connect khi mở app..."
 connect_saved_ip_list
-
-echo ""
-ui_warn "Đã quét xong. Chuẩn bị vào menu..."
 sleep 1.2
+printf '\033c'
 
 while true; do
 clear
