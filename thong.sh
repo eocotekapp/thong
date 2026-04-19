@@ -1,4 +1,4 @@
-#ver 1.3
+#ver 1.4
 #!/usr/bin/env bash
 
 export LANG=en_US.UTF-8
@@ -248,18 +248,15 @@ ui_dim() {
 printf "%b%s%b\n" "$DIM$BRIGHT_WHITE" "$1" "$RESET"
 }
 
-draw_progress_bar_spinner() {
-local label="$1"
-local done="$2"
-local total="$3"
-local color="$4"
-local spin_idx="$5"
-local width=20
+draw_progress_bar() {
+local done="$1"
+local total="$2"
+local width=30
 local percent=0
 local filled=0
 local empty=0
-local filled_bar=""
-local empty_bar=""
+local bar_filled=""
+local bar_empty=""
 
 [ "$total" -le 0 ] && total=1
 
@@ -267,31 +264,27 @@ percent=$((done * 100 / total))
 filled=$((done * width / total))
 empty=$((width - filled))
 
-filled_bar=$(printf "%${filled}s" "" | sed 's/ /🇻🇳/g')
-empty_bar=$(printf "%${empty}s" "" | tr ' ' '·')
+bar_filled=$(printf "%${filled}s" "" | tr ' ' '#')
+bar_empty=$(printf "%${empty}s" "" | tr ' ' '.')
 
-printf "\r%b%s%b %b[%s%b%b%s%b] %3d%% (%d/%d)%b" \
-"$color$BOLD" "$label" "$RESET" \
-"$color$BOLD" "$filled_bar" "$RESET" \
-"$BRIGHT_BLACK" "$empty_bar" "$RESET" \
-"$percent" "$done" "$total" "$RESET"
+printf "\r%b[%s%s] %3d%% (%d/%d)%b" \
+"$BRIGHT_CYAN$BOLD" \
+"$bar_filled" "$bar_empty" \
+"$percent" "$done" "$total" \
+"$RESET"
 }
 
 show_progress_until_done() {
 local progress_file="$1"
 local total="$2"
-local label="$3"
-local color="$4"
 local done=0
-local spin_idx=0
 
 while true; do
 done=$(wc -l < "$progress_file" 2>/dev/null | tr -d ' ')
 [ -z "$done" ] && done=0
-draw_progress_bar_spinner "$label" "$done" "$total" "$color" "$spin_idx"
+draw_progress_bar "$done" "$total"
 [ "$done" -ge "$total" ] && break
-spin_idx=$((spin_idx + 1))
-sleep 0.08
+sleep 0.1
 done
 
 echo ""
@@ -568,7 +561,7 @@ c=0
 fi
 done < "$tmp_ips"
 
-show_progress_until_done "$tmp_progress_scan" "$total" "Đang lọc IP mở port 5555..." "$BRIGHT_CYAN"
+show_progress_until_done "$tmp_progress_scan" "$total"
 
 wait
 sort -u "$tmp_open" -o "$tmp_open"
@@ -603,7 +596,7 @@ c=0
 fi
 done < "$tmp_open"
 
-show_progress_until_done "$tmp_progress_connect" "$open_total" "Đang connect 2 lần tới các IP online..." "$BRIGHT_GREEN"
+show_progress_until_done "$tmp_progress_connect" "$open_total"
 
 wait
 
@@ -1188,10 +1181,12 @@ need_cmd curl
 adb_start_clean
 
 echo ""
-ui_info "🚀 Tự động lọc IP mở 5555 và connect khi mở app..."
+ui_info "🚀 Tự động quét và connect IP khi mở app..."
 connect_saved_ip_list
+
+echo ""
+ui_warn "Đã quét xong. Chuẩn bị vào menu..."
 sleep 1.2
-printf '\033c'
 
 while true; do
 clear
