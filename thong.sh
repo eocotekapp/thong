@@ -1,4 +1,4 @@
-#ver 1.0
+#ver 1.1
 #!/usr/bin/env bash
 
 export LANG=en_US.UTF-8
@@ -845,37 +845,6 @@ ui_warn "Bỏ qua push."
 esac
 }
 
-play_on_selected() {
-local video_name
-local dev
-local name
-
-video_name=$(basename "$(get_last_video)")
-if [ -z "$video_name" ]; then
-ui_warn "⚠ Chưa có video gần nhất."
-printf "%bNhập tên file video trong /sdcard/Download/ trên máy đích:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
-read -r video_name
-fi
-
-if [ -z "$video_name" ]; then
-ui_err "❌ Chưa có tên video"
-return
-fi
-
-choose_devices || return
-
-echo ""
-ui_info "▶ Đang mở video: $video_name"
-for dev in "${SELECTED_DEVICES[@]}"; do
-name=$(get_name_by_ip "$dev")
-printf "%b→%b %b%s%b %b(%s)%b\n" \
-"$BRIGHT_WHITE$BOLD" "$RESET" \
-"$BRIGHT_GREEN$BOLD" "$name" "$RESET" \
-"$DIM$BRIGHT_WHITE" "$dev" "$RESET"
-adb -s "$dev" shell am start -a android.intent.action.VIEW -d "file:///sdcard/Download/$video_name" -t "video/*" >/dev/null 2>&1 && ui_ok "   ✅ OK" || ui_err "   ❌ FAIL"
-done
-}
-
 list_videos_on_device() {
 local dev="$1"
 
@@ -1164,12 +1133,11 @@ printf "%b1)%b %b🔗 Lọc IP mở 5555 rồi connect 2 lần%b\n" "$BRIGHT_WHI
 printf "%b2)%b %b🔗 Connect IP thủ công%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
 printf "%b3)%b %b📋 Xem thiết bị đang connect%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
 printf "%b4)%b %b📤 Push video lên thiết bị%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_MAGENTA$BOLD" "$RESET"
-printf "%b5)%b %b▶ Mở / phát video theo tên video đã nhớ%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_BLUE$BOLD" "$RESET"
-printf "%b6)%b %b🎬 Xem video đạt ngưỡng và chọn mở luôn%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
-printf "%b7)%b %b🔄 Chọn video đạt ngưỡng rồi tự đồng bộ + phát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
-printf "%b8)%b %b🗂 Xem danh sách tên máy/IP%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
-printf "%b9)%b %b🌐 Tải video từ URL vào cache tạm rồi push%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
-printf "%b10)%b %b🌍 Mở web upload (Android/iOS nếu được)%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_BLUE$BOLD" "$RESET"
+printf "%b5)%b %b🎬 Xem video đạt ngưỡng và chọn mở luôn%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%b6)%b %b🔄 Chọn video đạt ngưỡng rồi tự đồng bộ + phát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_GREEN$BOLD" "$RESET"
+printf "%b7)%b %b🗂 Xem danh sách tên máy/IP%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
+printf "%b8)%b %b🌐 Tải video từ URL vào cache tạm rồi push%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
+printf "%b9)%b %b🌍 Mở web upload (Android/iOS nếu được)%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_BLUE$BOLD" "$RESET"
 printf "%b0)%b %b✖ Thoát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_RED$BOLD" "$RESET"
 ui_line
 printf "%bChọn:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
@@ -1180,12 +1148,11 @@ case "$choice" in
 2) connect_manual; pause_enter ;;
 3) echo ""; list_connected_devices_named; pause_enter ;;
 4) push_to_selected; pause_enter ;;
-5) play_on_selected; pause_enter ;;
-6) show_threshold_videos_and_play; pause_enter ;;
-7) pick_threshold_video_sync_and_play; pause_enter ;;
-8) show_device_names_file; pause_enter ;;
-9) download_video_url_to_cache_and_push; pause_enter ;;
-10) open_upload_web_local; pause_enter ;;
+5) show_threshold_videos_and_play; pause_enter ;;
+6) pick_threshold_video_sync_and_play; pause_enter ;;
+7) show_device_names_file; pause_enter ;;
+8) download_video_url_to_cache_and_push; pause_enter ;;
+9) open_upload_web_local; pause_enter ;;
 0)
 clear
 ui_ok "Đã thoát."
@@ -1212,6 +1179,14 @@ need_cmd sed
 need_cmd curl
 
 adb_start_clean
+
+echo ""
+ui_info "🚀 Tự động quét và connect IP khi mở app..."
+connect_saved_ip_list
+
+echo ""
+ui_warn "Đã quét xong. Chuẩn bị vào menu..."
+sleep 1.2
 
 while true; do
 clear
