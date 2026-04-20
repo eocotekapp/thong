@@ -1,4 +1,5 @@
-#ver 1.5
+#ver 1.6
+#ver 1.6
 #!/usr/bin/env bash
 
 export LANG=en_US.UTF-8
@@ -1129,6 +1130,48 @@ done
 rm -rf "$tmpdir"
 }
 
+go_home_all() {
+local devices
+local dev
+local name
+local ok=0
+local fail=0
+
+devices=$(list_connected_devices_raw)
+
+if [ -z "$devices" ]; then
+ui_err "❌ Không có thiết bị nào đang connect."
+return
+fi
+
+echo ""
+ui_info "🏠 Đang đưa tất cả thiết bị đang connect về Home..."
+
+while IFS= read -r dev; do
+[ -z "$dev" ] && continue
+name=$(get_name_by_ip "$dev")
+
+printf "%b→%b %b%s%b %b(%s)%b\n" \
+"$BRIGHT_WHITE$BOLD" "$RESET" \
+"$BRIGHT_GREEN$BOLD" "$name" "$RESET" \
+"$DIM$BRIGHT_WHITE" "$dev" "$RESET"
+
+adb -s "$dev" shell input keyevent KEYCODE_HOME >/dev/null 2>&1
+if [ $? -eq 0 ]; then
+ui_ok "   ✅ OK"
+ok=$((ok+1))
+else
+ui_err "   ❌ FAIL"
+fail=$((fail+1))
+fi
+echo ""
+done <<EOF
+$devices
+EOF
+
+ui_info "Kết quả về Home: OK=$ok | FAIL=$fail"
+}
+
 show_device_names_file() {
 echo ""
 ui_info "Danh sách tên máy/IP đang lưu ở:"
@@ -1151,6 +1194,7 @@ printf "%b6)%b %b🔄 Chọn video đạt ngưỡng rồi tự đồng bộ + ph
 printf "%b7)%b %b🗂 Xem danh sách tên máy/IP%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_YELLOW$BOLD" "$RESET"
 printf "%b8)%b %b🌐 Tải video từ URL vào cache tạm rồi push%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
 printf "%b9)%b %b🌍 Mở web upload (Android/iOS nếu được)%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_BLUE$BOLD" "$RESET"
+printf "%b10)%b %b🏠 Đưa tất cả thiết bị đang connect về Home%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_CYAN$BOLD" "$RESET"
 printf "%b0)%b %b✖ Thoát%b\n" "$BRIGHT_WHITE$BOLD" "$RESET" "$BRIGHT_RED$BOLD" "$RESET"
 ui_line
 printf "%bChọn:%b " "$BRIGHT_YELLOW$BOLD" "$RESET"
@@ -1166,6 +1210,7 @@ case "$choice" in
 7) show_device_names_file; pause_enter ;;
 8) download_video_url_to_cache_and_push; pause_enter ;;
 9) open_upload_web_local; pause_enter ;;
+10) go_home_all; pause_enter ;;
 0)
 clear
 ui_ok "Đã thoát."
